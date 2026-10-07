@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 # Author:  Pravin Oli
-# Email:   pravin.oli.08@gmail.com, olipravin18@gmail.com
-# Project: Pomona Nexus — IFROS / EUROKNOWS
+# Project: Pomona Nexus
 
 """Laser self-return filter for the low 360 deg 2D rslidar.
 
@@ -47,6 +46,19 @@ from sensor_msgs.msg import LaserScan
 
 
 class LaserSelfFilter(Node):
+    """Replace LiDAR returns that land on the robot body with ``+inf``.
+
+    Subscribes to ``scan_raw`` and republishes on ``scan`` (both
+    ``sensor_msgs/LaserScan``, sensor-data QoS).
+
+    Parameters:
+        sensor_x, sensor_y, sensor_yaw (float): LiDAR pose in
+            ``base_footprint`` (defaults 0.37655, 0.0, 0.0).
+        fp_x_min, fp_x_max, fp_y_min, fp_y_max (float): axis-aligned
+            self-return box in ``base_footprint`` [m]
+            (defaults -0.55, 0.52, -0.28, 0.28).
+    """
+
     def __init__(self):
         super().__init__("laser_self_filter")
 
@@ -85,6 +97,7 @@ class LaserSelfFilter(Node):
         )
 
     def _on_scan(self, msg: LaserScan):
+        """Filter one scan in place and republish it."""
         ranges = list(msg.ranges)
         rmin, rmax = msg.range_min, msg.range_max
         for i, r in enumerate(ranges):
@@ -103,6 +116,7 @@ class LaserSelfFilter(Node):
 
 
 def main(args=None):
+    """Entry point: spin a :class:`LaserSelfFilter` until interrupted."""
     rclpy.init(args=args)
     node = LaserSelfFilter()
     try:

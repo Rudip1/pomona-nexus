@@ -1,4 +1,4 @@
-# Copyright 2026 Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 # Licensed under the Apache License, Version 2.0.
 #
 # Adapted from cogni-nav-x0 / vf_robot_bringup (Apache-2.0, same author).
@@ -100,6 +100,7 @@ def _set_path(d: dict, dotted_path: str, value: Any, *, strict: bool) -> None:
 
 
 def _raise_unknown_key(full_path: str, walked: list[str], parent_dict: dict) -> None:
+    """Raise ComposeError naming the missing key, with close-match suggestions."""
     missing = walked[-1]
     siblings = [k for k in parent_dict.keys() if isinstance(k, str)]
     suggestions = difflib.get_close_matches(missing, siblings, n=3, cutoff=0.6)

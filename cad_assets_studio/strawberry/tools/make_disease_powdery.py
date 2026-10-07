@@ -5,7 +5,7 @@
 import os, numpy as np
 from PIL import Image, ImageFilter
 
-TEX = os.path.expanduser("~/pomona_nexus/cad_agent/strawberry_plants/textures")
+TEX = os.path.expanduser("~/pomona_nexus/cad_assets_studio/strawberry/extracted/textures")
 leaf = Image.open(os.path.join(TEX, "Strawberry_leaf_diffuse.jpg")).convert("RGB")
 arr = np.asarray(leaf, dtype=np.float32) / 255.0
 h, w = arr.shape[:2]

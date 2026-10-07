@@ -8,8 +8,7 @@
       http://www.apache.org/licenses/LICENSE-2.0
 
   Author:  Pravin Oli
-  Email:   pravin.oli.08@gmail.com, olipravin18@gmail.com
-  Project: Pomona Nexus — IFROS / EUROKNOWS
+  Project: Pomona Nexus
 -->
 
 # Simulation runbook — empty_world
@@ -26,7 +25,7 @@ steps for it; everything else (base, lidar, IMU) is identical.
 ## 1. Launch
 
 ```bash
-cd /home/pravin/pomona_nexus
+cd ~/pomona_nexus
 colcon build --symlink-install
 source install/setup.bash
 

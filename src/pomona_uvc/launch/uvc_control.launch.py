@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2026 Pravin Oli <pravin.oli.08@gmail.com>, <olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 #
 # Brings up the UV-C controller (lamp on/off services + disinfection dose map).
 # Run alongside the pomona_uvc Gazebo sim. Optionally opens RViz with the dose

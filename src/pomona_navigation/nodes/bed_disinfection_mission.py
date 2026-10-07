@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 # Licensed under the Apache License, Version 2.0.
 
 """Autonomous UV-C bed-disinfection mission for the strawberry farm.
@@ -32,10 +32,26 @@ from pomona_navigation.launch_utils.bed_waypoints import mission_waypoints, HOME
 
 
 def _yaw_to_quat(yaw):
+    """Return the (x, y, z, w) quaternion for a rotation of ``yaw`` about Z."""
     return (0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0))
 
 
 class BedDisinfectionMission(Node):
+    """Send the bed-sweep route to Nav2 as one ``FollowWaypoints`` goal.
+
+    After ``start_delay`` seconds the node optionally publishes the spawn pose
+    on ``initialpose``, waits up to 30 s for the ``follow_waypoints`` action
+    server, then sends the poses from
+    :func:`pomona_navigation.launch_utils.bed_waypoints.mission_waypoints`.
+
+    Parameters:
+        frame_id (str, 'map'): frame of the waypoints and initial pose.
+        set_initial_pose (bool, True): publish ``initial_pose`` before starting.
+        initial_pose (list[float], [0, 0, 0]): ``[x, y, yaw]`` for AMCL seeding.
+        start_delay (float, 5.0): seconds to wait before starting [s].
+        return_home (bool, True): append the spawn pose as the last waypoint.
+    """
+
     def __init__(self):
         super().__init__("bed_disinfection_mission")
         self.declare_parameter("frame_id", "map")
@@ -54,6 +70,7 @@ class BedDisinfectionMission(Node):
 
     # ── build PoseStamped list ───────────────────────────────────────────
     def _pose(self, x, y, yaw):
+        """Build a ``PoseStamped`` in ``frame_id`` from planar (x, y, yaw)."""
         p = PoseStamped()
         p.header.frame_id = self.frame_id
         p.header.stamp = self.get_clock().now().to_msg()
@@ -65,6 +82,7 @@ class BedDisinfectionMission(Node):
         return p
 
     def _publish_initial_pose(self):
+        """Publish the ``initial_pose`` parameter on ``initialpose``."""
         x, y, yaw = self.get_parameter("initial_pose").value
         msg = PoseWithCovarianceStamped()
         msg.header.frame_id = self.frame_id
@@ -82,6 +100,7 @@ class BedDisinfectionMission(Node):
 
     # ── mission ──────────────────────────────────────────────────────────
     def _start(self):
+        """One-shot timer callback: seed the pose, wait for Nav2, send the goal."""
         self._timer.cancel()
         if self.get_parameter("set_initial_pose").value:
             self._publish_initial_pose()
@@ -102,10 +121,12 @@ class BedDisinfectionMission(Node):
         fut.add_done_callback(self._on_goal_response)
 
     def _on_feedback(self, feedback):
+        """Log the index of the waypoint currently being approached."""
         cur = feedback.feedback.current_waypoint
         self.get_logger().info(f"→ heading to waypoint {cur}", throttle_duration_sec=2.0)
 
     def _on_goal_response(self, future):
+        """Handle goal acceptance and register the result callback."""
         handle = future.result()
         if not handle.accepted:
             self.get_logger().error("FollowWaypoints goal REJECTED")
@@ -114,6 +135,7 @@ class BedDisinfectionMission(Node):
         handle.get_result_async().add_done_callback(self._on_result)
 
     def _on_result(self, future):
+        """Log mission completion and any missed waypoints."""
         missed = future.result().result.missed_waypoints
         if missed:
             self.get_logger().warn(f"Mission done, missed waypoints: {list(missed)}")
@@ -122,6 +144,7 @@ class BedDisinfectionMission(Node):
 
 
 def main(args=None):
+    """Entry point: spin a :class:`BedDisinfectionMission` until interrupted."""
     rclpy.init(args=args)
     node = BedDisinfectionMission()
     try:

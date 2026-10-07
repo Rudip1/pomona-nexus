@@ -9,8 +9,7 @@
     as an OccupancyGrid on /uvc/dose for RViz. (The Gazebo blue ray fans are a
     separate, always-on visual — Gazebo Classic can't toggle a visualised laser.)
   </description>
-  <maintainer email="pravin.oli.08@gmail.com">Pravin Oli</maintainer>
-  <maintainer email="olipravin18@gmail.com">Pravin Oli</maintainer>
+  <maintainer email="Rudip1@users.noreply.github.com">Pravin Oli</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

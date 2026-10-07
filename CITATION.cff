@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "Pomona Nexus: ROS 2 workspace for an autonomous UV-C bed-disinfection robot"
+type: software
+authors:
+  - family-names: Oli
+    given-names: Pravin
+version: 0.1.0
+license: Apache-2.0
+keywords:
+  - ROS 2
+  - agricultural robotics
+  - UV-C disinfection
+  - Nav2
+  - SLAM
+  - Gazebo
+# TODO: add repository-code and date-released once the repository is published.

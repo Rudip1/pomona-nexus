@@ -14,7 +14,7 @@ Setup Assistant** against the URDF and regenerate.
 # Load Pomona into Setup Assistant
 ros2 launch moveit_setup_assistant setup_assistant.launch.py
 # → "Edit Existing MoveIt Config Package"
-# → point at /home/pravin/pomona_nexus/src/pomona_moveit_config
+# → point at ~/pomona_nexus/src/pomona_moveit_config
 # → load URDF: pomona_description/urdf/pomona_original/xacro/pomona.xacro  (use_sim:=false)
 # → generate Self-Collisions, Planning Groups (arm / gripper), Group States,
 #   End Effectors, Controllers, ROS 2 Controllers

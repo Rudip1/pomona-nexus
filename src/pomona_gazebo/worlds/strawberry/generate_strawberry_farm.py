@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 # Licensed under the Apache License, Version 2.0.
 #
 # Generate the pinwheel strawberry-bed field + planted strawberries.
@@ -44,6 +44,7 @@ rng = random.Random(SEED)
 cat_n = {v[0]: 0 for v in VARIANTS}
 
 def pick():
+    """Draw a plant variant name according to the VARIANTS weights."""
     r = rng.random(); c = 0.0
     for name, w in VARIANTS:
         c += w
@@ -52,14 +53,17 @@ def pick():
     return VARIANTS[0][0]
 
 def bed_inc(name, x, y, yaw):
+    """Return an SDF <include> for one bed at (x, y) with heading yaw."""
     return (f'    <include><uri>model://bed</uri><name>{name}</name>'
             f'<pose>{x:.3f} {y:.3f} 0 0 0 {yaw:.4f}</pose></include>\n')
 
 def plant_inc(name, model, x, y, yaw):
+    """Return an SDF <include> for one plant model at (x, y, PLANT_Z)."""
     return (f'    <include><uri>model://{model}</uri><name>{name}</name>'
             f'<pose>{x:.3f} {y:.3f} {PLANT_Z} 0 0 {yaw:.4f}</pose></include>\n')
 
 def plants_on_bed(bn, bx, by, yaw, parts):
+    """Append staggered plant rows for bed `bn` (centre bx, by; heading yaw) to parts."""
     cy, sy = math.cos(yaw), math.sin(yaw)
     half = BED_LEN / 2.0 - END_MARGIN
     npl = int((2 * half) / PLANT_PITCH) + 1

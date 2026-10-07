@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2026 Pravin Oli <pravin.oli.08@gmail.com>, <olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 #
 # Pomona UV-C controller.
 #
@@ -33,6 +33,37 @@ import tf2_ros
 
 
 class UvcController(Node):
+    """ROS 2 node that switches the 12 UV-C lamps and integrates a dose map.
+
+    Lamp state is held in memory (all OFF at start) and changed only through
+    ``std_srvs/SetBool`` services. Every ``dt`` = 0.1 s the node publishes the
+    lamp states and, for each lit lamp, deposits dose into a square grid
+    centred on the lamp's ground position (looked up via TF
+    ``dose_frame`` <- ``base_frame``). The grid is published at 2 Hz as an
+    ``OccupancyGrid`` normalised to ``sufficient_dose``.
+
+    Parameters:
+        lamps_per_side (int, 6): lamps on each panel.
+        dose_frame (str, 'odom'): fixed frame of the dose grid.
+        base_frame (str, 'base_footprint'): robot frame the lamps are attached to.
+        dose_resolution (float, 0.05): grid cell size [m].
+        dose_size_m (float, 24.0): grid side length [m], centred on the origin.
+        max_radiation_distance (float, 0.6): footprint radius per lamp [m].
+        sufficient_dose (float, 800.0): dose that maps to 100 in the grid.
+        dose_rate_scale (float, 10.0): multiplier on the per-tick dose rate.
+
+    Publishes:
+        /uvc/lamp_states (std_msgs/Int8MultiArray): 1 = lit, ordered
+            left_0..left_{n-1}, right_0..right_{n-1}.
+        /uvc/dose (nav_msgs/OccupancyGrid): -1 undosed, 1..100 dose fraction.
+
+    Services (std_srvs/SetBool):
+        /uvc/all, /uvc/left, /uvc/right, /uvc/lamp/<side>_<i>.
+
+    TODO: the dose units are not calibrated; document the physical meaning of
+    ``sufficient_dose`` and ``dose_rate_scale``.
+    """
+
     def __init__(self):
         super().__init__('uvc_controller')
 
@@ -87,6 +118,7 @@ class UvcController(Node):
 
     # ── services ─────────────────────────────────────────────────────────────
     def _make_service(self, name, apply_fn):
+        """Create a SetBool service ``name`` that calls ``apply_fn(data)``."""
         def cb(req, resp):
             apply_fn(req.data)
             self._publish_states()
@@ -98,16 +130,19 @@ class UvcController(Node):
         self.create_service(SetBool, name, cb)
 
     def _set(self, indices, value):
+        """Set the lamps at ``indices`` to ``value`` (True = lit)."""
         for i in indices:
             self.state[i] = bool(value)
 
     def _publish_states(self):
+        """Publish the current lamp states on ``/uvc/lamp_states``."""
         msg = Int8MultiArray()
         msg.data = [1 if s else 0 for s in self.state]
         self.state_pub.publish(msg)
 
     # ── periodic ─────────────────────────────────────────────────────────────
     def _tick(self):
+        """10 Hz timer: publish lamp states and deposit dose for lit lamps."""
         self._publish_states()
         if not any(self.state):
             return
@@ -131,6 +166,7 @@ class UvcController(Node):
             self._deposit(wx, wy)
 
     def _deposit(self, wx, wy):
+        """Add one tick of dose around world point (``wx``, ``wy``)."""
         # accumulate dose in the lamp's ground footprint, distance-falloff per
         # the vf_robot_disinfection model: f = 0.577 d^2 - 3.21 d + 4.843
         gx = int((wx - self.origin) / self.res)
@@ -150,6 +186,7 @@ class UvcController(Node):
         self.dose[y0:y1, x0:x1][mask] += f[mask]
 
     def _publish_dose(self):
+        """2 Hz timer: publish the dose grid on ``/uvc/dose``."""
         grid = OccupancyGrid()
         grid.header.stamp = self.get_clock().now().to_msg()
         grid.header.frame_id = self.frame
@@ -168,6 +205,7 @@ class UvcController(Node):
 
 
 def main():
+    """Entry point: spin a :class:`UvcController` until interrupted."""
     rclpy.init()
     node = UvcController()
     try:

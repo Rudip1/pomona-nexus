@@ -1,5 +1,5 @@
 #!/usr/bin/env freecadcmd
-# Copyright 2026 Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 # Licensed under the Apache License, Version 2.0.
 #
 # Pomona UV-C boom — a properly detailed fixture (not raw overlapping primitives).
