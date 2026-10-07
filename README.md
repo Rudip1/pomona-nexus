@@ -109,7 +109,7 @@ flowchart LR
 
 | Component | Version | How it was checked |
 |---|---|---|
-| Ubuntu | 22.04 | CI (`ros:humble-ros-base` container) |
+| Ubuntu | 22.04 | CI (`ros:humble-ros-base` container image) |
 | ROS 2 | Humble | CI: `colcon build` of all 8 packages, xacro → `check_urdf` for both robot models |
 | Python | 3.10 | CI: `pip install`, import and unit tests of `pomona_navigation.launch_utils` |
 | Gazebo | Classic 11 | Target simulator; not exercised in CI |

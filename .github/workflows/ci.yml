@@ -8,13 +8,13 @@ on:
 jobs:
   colcon:
     name: colcon build (ROS 2 Humble)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container: ros:humble-ros-base
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build workspace
         run: |
@@ -49,11 +49,11 @@ jobs:
 
   python:
     name: pip install + tests (Python)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
