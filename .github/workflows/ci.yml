@@ -8,7 +8,7 @@ on:
 jobs:
   colcon:
     name: colcon build (ROS 2 Humble)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container: ros:humble-ros-base
     defaults:
       run:
@@ -49,7 +49,7 @@ jobs:
 
   python:
     name: pip install + tests (Python)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
