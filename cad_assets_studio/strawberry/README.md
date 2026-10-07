@@ -7,22 +7,47 @@ Each plant is a single low-overhead mesh (~17k verts, one visual) so a whole
 field instances cheaply. Origin is centered in X/Y with the **base at z = 0**, so
 a plant drops straight onto a bed.
 
+## What is (and isn't) in this repository
+
+The plant geometry and its diffuse/normal maps are extracted from a third-party
+BlenderKit model ("Strawberry Garden Planter"). Its licence does not permit
+redistributing the asset, so **only the processing scripts and render previews
+are tracked here**. The generated folders below are listed in `.gitignore`;
+rebuild them locally from your own copy of the source model.
+
 ## Folder layout
 
 ```
 strawberry/
-├── source/      strawberry_plants.blend   editable master (textures packed, clean)
-│                strawberry_lowpoly.blend   older simple plant (separate asset)
-│                reference_strawberry.png   reference image
+├── previews/    preview_<state>.png        render previews (tracked)
+├── tools/       strawberry-specific scripts (tracked)
+│
+│  generated locally, not tracked:
+├── extracted/   output of extract_plants_textured.py (+ textures/)
+├── source/      strawberry_plants.blend    rebuilt clean master
 ├── meshes/      strawberry_plant_01..08    the 8 plant SHAPES (obj+mtl+dae+stl)
-│                strawberry_plants_all      all 8 combined
 ├── variants/    strawberry_<state>         textured STATE skins (obj+mtl+dae+stl)
-│                + local copies of the diffuse textures the DAEs reference
-├── textures/    master texture set (see below)
-├── previews/    preview_<state>.png        render previews
-├── checks/      check_plant.world, check_all_variants.world   (eyeball in Gazebo)
-└── tools/       strawberry-specific scripts
+└── textures/    master texture set (see below)
 ```
+
+## Rebuilding
+
+```bash
+cd cad_assets_studio
+# 1. extract plants + packed textures (never run embedded scripts)
+blender --background --disable-autoexec /path/to/source_planter.blend \
+  --python strawberry/tools/extract_plants_textured.py -- strawberry/extracted
+# 2. recolour berries / generate disease leaves
+python3 strawberry/tools/make_variant_textures.py
+python3 strawberry/tools/make_disease_powdery.py
+# 3. build a clean .blend from the safe OBJ output
+blender --background --python tools/obj_to_blend.py -- \
+  strawberry/meshes strawberry/source/strawberry_plants.blend "strawberry_plant_0*.obj"
+```
+
+TODO: the exact sequence used to produce `variants/` and copy them into
+`src/pomona_gazebo/models/strawberry/*/{meshes,textures}` was not recorded;
+document it end-to-end.
 
 ## Variants (states)
 
@@ -62,13 +87,6 @@ The source mesh exports Y-up; Gazebo is Z-up. Apply this in the SDF `<pose>`
 <pose>0 0 0 1.5708 0 1.5708</pose>
 ```
 
-## Preview / check in Gazebo
-
-```bash
-gazebo cad_assets_studio/strawberry/checks/check_all_variants.world   # all 6 in a row
-gazebo cad_assets_studio/strawberry/checks/check_plant.world          # one plant
-```
-
 ## Format notes
 
 - **OBJ + MTL** → textured via `../textures/`. Primary textured format.
@@ -87,13 +105,13 @@ gazebo cad_assets_studio/strawberry/checks/check_plant.world          # one plan
 | `export_textured_obj.py`     | wire diffuse → base color, export textured OBJ+MTL |
 | `make_variant_textures.py`   | recolor berries (unripe/half-ripe/flower) |
 | `make_disease_powdery.py`    | generate the powdery-mildew leaf texture |
+| `regenerate_dark_diseases.py`| regenerate the mildew / scorch leaf textures from `leaf_healthy.jpg` |
 
 (Shared scripts — `render_preview.py`, `obj_to_blend.py`, `obj_to_dae_stl.py`,
 `blend_export.py`, `blend_inspect.py` — live in `cad_assets_studio/tools/`.)
 
-## Provenance / license
+## Security note
 
-Extracted from a BlenderKit "Strawberry Garden Planter" model (pot + soil
-removed), then re-textured into the states above. The original `.blend` was
-**deleted** for security reasons (see `../README.md`); only code-free meshes and
-a freshly rebuilt `.blend` remain.
+The original downloaded planter `.blend` contained an auto-running script.
+Always open third-party `.blend` files with `--disable-autoexec`, and build the
+working `.blend` from the code-free OBJ output (`tools/obj_to_blend.py`).

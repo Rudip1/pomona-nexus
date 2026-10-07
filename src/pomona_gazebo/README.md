@@ -22,7 +22,7 @@ identically across `models/<crop>/`, `launch/<crop>/`, and
 | `tomato_greenhouse.world` | empty | — |
 
 Crop plant/prop models live in `models/<crop>/<crop>_<variant>/` (built from
-`cad_assets_studio/<crop>/` via the **crop-asset-pipeline** skill); shared props
+`cad_assets_studio/<crop>/` with the asset tools there); shared props
 in `models/environment/`. Because crop models sit two levels under `models/`, the
 crop launch must add `models/<crop>` to `GAZEBO_MODEL_PATH`.
 
@@ -54,7 +54,7 @@ launch: `empty_world_pomona_<model>_{xacro,sdf}.launch.py`.
 ## Day-1 verification
 
 ```bash
-cd /home/pravin/pomona_nexus
+cd ~/pomona_nexus
 colcon build --symlink-install
 source install/setup.bash
 

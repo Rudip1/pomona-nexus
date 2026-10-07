@@ -13,11 +13,9 @@
 
 <br/>
 
-<!-- Hero demo: 24 s screencast → optimized GIF. Full-resolution source kept in docs/. -->
-![Pomona mapping the strawberry farm in Gazebo](docs/slam_demo.gif)
+![Pomona mapping the strawberry farm in Gazebo](../../media/slam_demo.gif)
 
-<sub>Live online mapping — <code>pomona_uvc</code> driving the strawberry farm while SLAM Toolbox grows the occupancy grid in RViz. ·
-<a href="docs/Screencast%20from%2006-09-2026%2012%3A36%3A49%20AM.webm">full-resolution clip ↗</a></sub>
+<sub>Live online mapping — <code>pomona_uvc</code> driving the strawberry farm while SLAM Toolbox grows the occupancy grid in RViz.</sub>
 
 </div>
 
@@ -70,11 +68,9 @@ ros2 launch pomona_slam save_map.launch.py map_name:=strawberry_farm
 
 <div align="center">
 
-<!-- PLACEHOLDER — drop a PNG export of the finished map here (the .pgm in maps/
-     doesn't render on GitHub). Suggested: docs/strawberry_farm_map.png -->
-<img src="docs/strawberry_farm_map.png" alt="Occupancy grid of the strawberry farm after a full scan" width="60%"/>
+<img src="../../media/strawberry_farm_map.png" alt="Occupancy grid of the strawberry farm" width="60%"/>
 
-<sub>📌 *Placeholder — full-scan occupancy grid goes here.*</sub>
+<sub>`maps/strawberry_farm.pgm` rendered as PNG — 563 × 401 cells at 0.05 m/cell.</sub>
 
 </div>
 
@@ -201,10 +197,7 @@ pomona_slam/
 │   ├── slam_toolbox_localization.yaml
 │   └── slam_toolbox_offline.yaml
 ├── maps/                         # saved maps live here (committable)
-├── rviz/slam.rviz                # preconfigured mapping view
-└── docs/
-    ├── slam_demo.gif             # README hero
-    └── Screencast …​.webm          # full-resolution clip
+└── rviz/slam.rviz                # preconfigured mapping view
 ```
 
 ---

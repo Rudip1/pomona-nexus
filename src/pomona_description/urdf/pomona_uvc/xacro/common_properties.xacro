@@ -8,7 +8,7 @@
 
       http://www.apache.org/licenses/LICENSE-2.0
 
-  Author:  Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+  Author:  Pravin Oli
   Project: Pomona Nexus
 -->
 <robot name="common_properties" xmlns:xacro="http://ros.org/wiki/xacro">

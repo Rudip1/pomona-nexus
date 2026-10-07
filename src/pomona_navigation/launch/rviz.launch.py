@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 Pravin Oli  <pravin.oli.08@gmail.com, olipravin18@gmail.com>
+# Copyright 2026 Pravin Oli
 # Licensed under the Apache License, Version 2.0.
 #
 # RViz2 with the Pomona navigation config (costmaps, path, 2D Pose Estimate,

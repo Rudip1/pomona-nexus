@@ -4,7 +4,7 @@
 import os, numpy as np
 from PIL import Image
 
-TEX = os.path.expanduser("~/pomona_nexus/cad_agent/strawberry_plants/textures")
+TEX = os.path.expanduser("~/pomona_nexus/cad_assets_studio/strawberry/extracted/textures")
 berry = os.path.join(TEX, "Strawberry_diffuse.jpg")
 leaf  = os.path.join(TEX, "Strawberry_leaf_diffuse.jpg")
 

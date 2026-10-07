@@ -1319,7 +1319,7 @@
     </plugin>
     <static>0</static>
     <plugin name='gazebo_ros2_control' filename='libgazebo_ros2_control.so'>
-      <parameters>/home/pravin/pomona_nexus/install/pomona_gazebo/share/pomona_gazebo/config/gazebo_ros2_control_sim.yaml</parameters>
+      <parameters>~/pomona_nexus/install/pomona_gazebo/share/pomona_gazebo/config/gazebo_ros2_control_sim.yaml</parameters>
       <robot_param>robot_description</robot_param>
       <robot_param_node>robot_state_publisher</robot_param_node>
     </plugin>

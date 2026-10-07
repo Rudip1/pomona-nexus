@@ -9,6 +9,8 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+.venv/
+venv/
 
 # ── editor ────────────────────────────────────────────────────────────────────
 .vscode/
@@ -16,15 +18,31 @@ __pycache__/
 *.swp
 *~
 
+# ── MATLAB autosave ───────────────────────────────────────────────────────────
+*.asv
+
 # ── ROS / Gazebo runtime artifacts ────────────────────────────────────────────
 *.bag
 *.db3
 *.mcap
+core
 
-# ── screen recordings (too heavy for git; commit a trimmed .gif instead) ──────
+# ── screen recordings (too heavy for git; commit a trimmed .gif in media/) ────
 *.webm
 *.mp4
 *.mov
+*.mkv
+*.avi
+
+# ── archives ──────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.tgz
+*.7z
+
+# ── Blender backups / binary exports ──────────────────────────────────────────
+*.blend1
+*.glb
 
 # ── goldmines: reference-only, NOT version controlled ────────────────────────
 # Read-only ROS1 source + robot dumps + downloaded sim assets (~4 GB).
@@ -35,12 +53,14 @@ goldmines/
 .DS_Store
 Thumbs.db
 
-# ── AI assistant / local tooling (keep out of the repo) ──────────────────────
-.claude/
-plans/
-*.plan.md
-AGENTS.md
-CLAUDE.md
-
-# Personal job-application materials (CV, cover letter, drafts) — not part of the project
-apply/
+# ── third-party plant assets (not redistributable; regenerate locally) ───────
+# Strawberry meshes/textures are derived from a BlenderKit model; see
+# cad_assets_studio/strawberry/README.md for how to rebuild them.
+cad_assets_studio/strawberry/source/
+cad_assets_studio/strawberry/extracted/
+cad_assets_studio/strawberry/meshes/
+cad_assets_studio/strawberry/variants/
+cad_assets_studio/strawberry/textures/
+cad_assets_studio/strawberry/checks/
+src/pomona_gazebo/models/strawberry/*/meshes/
+src/pomona_gazebo/models/strawberry/*/textures/

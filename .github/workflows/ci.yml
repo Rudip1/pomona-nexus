@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  colcon:
+    name: colcon build (ROS 2 Humble)
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build workspace
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --event-handlers console_cohesion+ \
+            --cmake-args -DBUILD_TESTING=OFF
+
+      - name: Check installed packages
+        run: |
+          source install/setup.bash
+          ros2 pkg list | grep '^pomona_' | tee pkgs.txt
+          test "$(wc -l < pkgs.txt)" -eq 8
+
+      - name: Install xacro and urdfdom tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq ros-humble-xacro liburdfdom-tools
+
+      - name: Expand and validate robot URDFs
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          for model in pomona_original pomona_uvc; do
+            for sim in false true; do
+              echo "::group::${model} use_sim:=${sim}"
+              xacro "src/pomona_description/urdf/${model}/xacro/pomona.xacro" \
+                use_sim:=${sim} > "/tmp/${model}_${sim}.urdf"
+              check_urdf "/tmp/${model}_${sim}.urdf"
+              echo "::endgroup::"
+            done
+          done
+
+  python:
+    name: pip install + tests (Python)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./src/pomona_navigation pyyaml pytest
+
+      - name: Import test
+        run: |
+          cd /tmp
+          python -c "import pomona_navigation.launch_utils.compose_params, pomona_navigation.launch_utils.bed_waypoints"
+
+      - name: Byte-compile all Python sources
+        run: python -m compileall -q src cad_assets_studio
+
+      - name: Unit tests
+        run: python -m pytest -q src/pomona_navigation/test

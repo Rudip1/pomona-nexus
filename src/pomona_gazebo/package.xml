@@ -11,9 +11,8 @@
     mushroom greenhouse). URDF and meshes live in pomona_description.
   </description>
 
-  <maintainer email="pravin.oli.08@gmail.com">Pravin Oli</maintainer>
-  <maintainer email="olipravin18@gmail.com">Pravin Oli</maintainer>
-  <author email="pravin.oli.08@gmail.com">Pravin Oli</author>
+  <maintainer email="Rudip1@users.noreply.github.com">Pravin Oli</maintainer>
+  <author>Pravin Oli</author>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

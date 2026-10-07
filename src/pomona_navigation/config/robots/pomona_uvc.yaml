@@ -8,7 +8,7 @@
 # Strict mode: every dotted key must already exist in the merged params.
 #
 # SOURCES OF TRUTH
-#   • footprint: Scout V2 base 0.925 × 0.380 m (CLAUDE.md / scout_v2.xacro);
+#   • footprint: Scout V2 base 0.925 × 0.380 m (scout_v2.xacro);
 #     base_link sits at the geometric centre → symmetric polygon.
 #     The UV-C boom (panels at ±1.5 m) rides at ~1.06 m AGL, ABOVE the 1.0 m
 #     costmap height band, so it is intentionally NOT in the 2D footprint.

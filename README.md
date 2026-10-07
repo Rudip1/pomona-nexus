@@ -1,250 +1,264 @@
-<div align="center">
+# Pomona Nexus
 
-# 🍓 Pomona Nexus
-
-### A AgRoField robotics workspace - drive the furrows, map the farm, disinfect the beds
-
-*One ROS 2 Humble workspace for **Pomona**: an AgileX Scout V2 that maps, navigates,
-and treats crop beds with UV-C - in Gazebo today, on the real robot tomorrow.*
+**A ROS 2 Humble workspace for an AgileX Scout V2 field robot that maps a strawberry farm, navigates its furrows and sweeps every bed with a UV-C disinfection boom, in Gazebo Classic and on hardware.**
 
 [![ROS 2](https://img.shields.io/badge/ROS%202-Humble-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/humble/)
-[![Gazebo](https://img.shields.io/badge/Gazebo-Classic%2011-FF6C2C?logo=gazebo&logoColor=white)](https://classic.gazebosim.org/)
-[![Nav2](https://img.shields.io/badge/Nav2-1.1.x-5B8DEF)](https://navigation.ros.org/)
-[![SLAM Toolbox](https://img.shields.io/badge/SLAM-Toolbox-5B8DEF)](https://github.com/SteveMacenski/slam_toolbox)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-<br/>
+![Online SLAM of the strawberry farm in Gazebo and RViz](media/slam_demo.gif)
 
-<!-- Hero: online SLAM screencast -> optimized GIF (source in src/pomona_slam/docs/). -->
-![Pomona mapping the strawberry farm in Gazebo](src/pomona_slam/docs/slam_demo.gif)
-
-<sub>Live online mapping - <code>pomona_uvc</code> driving the strawberry farm while SLAM Toolbox grows the occupancy grid in RViz.</sub>
-
-</div>
+<sub>`pomona_uvc` driving the simulated strawberry farm while SLAM Toolbox builds the occupancy grid.</sub>
 
 ---
 
-Pomona started life on a real **AgileX Scout V2** running ROS 1 Melodic; we ported the
-geometry, meshes, and hardware config into a clean **ROS 2 Humble + Gazebo Classic 11**
-workspace. The same tree runs the **simulation** on the dev machine and the **hardware
-drivers** on the physical robot - toggle with `use_sim_time:=true|false`. Target use
-case: **greenhouse fruit/bed work** (strawberry first; grape / apple / mushroom / maize /
-tomato to follow).
+## Problem
+
+Powdery mildew on strawberries can be treated with UV-C light, but the lamps
+have to pass close over every plant, bed after bed. Pomona is a skid-steer
+Scout V2 base carrying a cantilever boom with two downward lamp panels spaced
+to straddle a pair of raised beds. The workspace provides everything needed to
+run that job autonomously in simulation: the robot models, a procedurally
+generated farm, 2D SLAM, a Nav2 stack, a waypoint mission over every bed pair
+and a node that switches the lamps and accumulates a UV-C dose map.
+
+## Key numbers
+
+All figures below come from the code and data in this repository.
+
+| | Value | Source |
+|---|---|---|
+| Farm layout | 24 beds (6 per quadrant, 10 m × 1 m), 1 512 plants | `generate_strawberry_farm.py` output |
+| Plant mix | 1 130 ripe · 76 half-ripe · 85 unripe · 76 flower · 69 mildew · 76 leaf-scorch | same (seed 42) |
+| UV-C boom | 12 lamps, 2 panels at ±1.0 m → one pass covers 2 beds | `uvc_controller.py`, `bed_waypoints.py` |
+| Coverage route | 12 lanes (3 per quadrant), 25 Nav2 waypoints incl. return home | `bed_waypoints.py` |
+| Saved SLAM map | 563 × 401 cells at 0.05 m/cell (≈ 28.2 m × 20.1 m) | `src/pomona_slam/maps/strawberry_farm.yaml` |
+| Dose map | 480 × 480 cells at 0.05 m/cell (24 m square) | `uvc_controller.py` defaults |
+
+TODO: no quantitative evaluation (mission time, coverage fraction, localisation
+error) is recorded in the repository yet.
+
+<p align="center">
+  <img src="media/strawberry_farm_map.png" alt="Occupancy grid of the strawberry farm" width="60%"/><br/>
+  <sub>The saved occupancy grid of the farm (<code>maps/strawberry_farm.pgm</code>).</sub>
+</p>
+
+---
+
+## Architecture
+
+Simulation path for the autonomous disinfection mission (`pomona_uvc` model):
+
+```mermaid
+flowchart LR
+    subgraph desc["pomona_description"]
+        xacro["pomona.xacro<br/>(Scout V2 + UV-C boom)"]
+    end
+
+    subgraph gz["pomona_gazebo (Gazebo Classic 11)"]
+        world["strawberry_farm.world<br/>24 beds · 1 512 plants"]
+        robot["pomona_uvc model<br/>diff_drive · gpu_ray LiDAR · IMU"]
+        lsf["laser_self_filter"]
+    end
+
+    rsp["robot_state_publisher"]
+    slam["slam_toolbox<br/>(pomona_slam)"]
+
+    subgraph nav["pomona_navigation"]
+        compose["compose_params.py<br/>base ⊕ MPPI|DWB ⊕ NavFn ⊕ robot profile"]
+        nav2["Nav2 servers"]
+        wp["bed_waypoints.py<br/>12 lanes → 25 poses"]
+        mission["bed_disinfection_mission"]
+    end
+
+    subgraph uvc["pomona_uvc"]
+        uvcnode["uvc_controller"]
+    end
+
+    rviz["RViz"]
+
+    xacro -- robot_description --> rsp
+    rsp -- spawn --> robot
+    world --- robot
+    robot -- "/scan_raw" --> lsf
+    lsf -- "/scan" --> slam
+    robot -- "/odom, TF odom→base_footprint" --> slam
+    slam -- "/map, TF map→odom" --> nav2
+    compose -- "params YAML" --> nav2
+    wp --> mission
+    mission -- "FollowWaypoints action" --> nav2
+    nav2 -- "/cmd_vel" --> robot
+    uvcnode -. "TF odom→base_footprint" .- robot
+    uvcnode -- "/uvc/dose (OccupancyGrid)" --> rviz
+    uvcnode -- "/uvc/lamp_states" --> rviz
+```
+
+| Package | Role |
+|---|---|
+| [`pomona_description`](src/pomona_description/README.md) | URDF/xacro and meshes for two models: `pomona_original` (xArm6 + AG95 gripper) and `pomona_uvc` (UV-C boom) |
+| [`pomona_gazebo`](src/pomona_gazebo/README.md) | Gazebo Classic 11 worlds, crop/environment models, spawn launches, LiDAR self-return filter |
+| [`pomona_slam`](src/pomona_slam/README.md) | SLAM Toolbox online mapping, localisation and map saving |
+| [`pomona_navigation`](src/pomona_navigation/README.md) | Launch-time Nav2 parameter composer, Nav2 bringup, bed-disinfection mission |
+| [`pomona_uvc`](src/pomona_uvc/README.md) | UV-C lamp services and dose-map publisher |
+| [`pomona_moveit_config`](src/pomona_moveit_config/README.md) | MoveIt 2 configuration for the arm (stub) |
+| [`pomona_bringup`](src/pomona_bringup/README.md) | Real-robot drivers and udev/CAN setup (stubs) |
+| `pomona_msgs` | Custom interfaces (none defined yet) |
+
+---
+
+## Tested versions
+
+| Component | Version | How it was checked |
+|---|---|---|
+| Ubuntu | 22.04 | CI (`ros:humble-ros-base` container) |
+| ROS 2 | Humble | CI: `colcon build` of all 8 packages, xacro → `check_urdf` for both robot models |
+| Python | 3.10 | CI: `pip install`, import and unit tests of `pomona_navigation.launch_utils` |
+| Gazebo | Classic 11 | Target simulator; not exercised in CI |
+| Nav2 / SLAM Toolbox / MoveIt 2 | Humble binaries | Runtime dependencies; not exercised in CI |
+
+---
+
+## Install
 
 ```bash
-cd /home/pravin/pomona_nexus
+# ROS 2 Humble on Ubuntu 22.04 must already be installed.
+mkdir -p ~/pomona_ws && cd ~/pomona_ws
+git clone <this-repo-url> pomona_nexus
+cd pomona_nexus
+
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -y   # Gazebo, Nav2, SLAM Toolbox, MoveIt, ...
 colcon build --symlink-install
 source install/setup.bash
 ```
 
----
+Verified: `colcon build` (without `rosdep install`, `-DBUILD_TESTING=OFF`)
+completes for all 8 packages in a clean `ros:humble-ros-base` container; the CI
+workflow repeats this on every push.
 
-## 🤖 The Robot
+> **Strawberry plant meshes are not included.** They are derived from a
+> third-party model that may not be redistributed; the farm world loads the
+> beds, ground and hedge, but the plants need to be rebuilt locally. See
+> [`cad_assets_studio/strawberry/README.md`](cad_assets_studio/strawberry/README.md).
 
-<div align="center">
+## Run
 
-![Pomona UV-C robot model](src/pomona_description/docs/robot_demo.gif)
-
-<sub>The <code>pomona_uvc</code> model in the description viewer - Scout V2 base, deck box, and the cantilever UV-C boom. · <code>ros2 launch pomona_description display_pomona_uvc.launch.py</code></sub>
-
-</div>
-
-Pomona is an **AgileX Scout V2** 4-wheel skid-steer base (0.925 × 0.380 × 0.210 m,
-wheelbase 0.498 m) carrying a white **deck box** (`box_link`) that holds the sensors and
-payload. Geometry, meshes, and the two robot models live in
-**[`pomona_description`](src/pomona_description/README.md)**.
-
-It ships in **two self-contained models** - pick the one for the job:
-
-| Model | Payload | For |
-|---|---|---|
-| 🦾 **pomona_original** | UFactory **xArm6** + DH **AG95** gripper + RealSense **D435** on the wrist, on `gazebo_ros2_control` | fruit picking / manipulation, MoveIt, the real robot |
-| 💡 **pomona_uvc** | cantilever **UV-C boom** - T-frame mast, two 1 m panels with **12 lamp tubes** that glow violet and shoot blue UV-C **ray-fans** at the beds, plus **2 down-looking RealSense D455** cameras | bed disinfection (sim) |
-
-The **UV-C boom** (`uvc_cantilever.xacro`) is a vertical mast + cross-tube reaching two
-downward panels at **±1.0 m** (one per bed). Each lamp tube renders a `gpu_ray` fan in
-Gazebo (always-on; marks where the UV-C lands), while the toggleable disinfection **dose**
-is owned by **[`pomona_uvc`](src/pomona_uvc/README.md)**.
+Verified without a simulator:
 
 ```bash
-ros2 launch pomona_description display_pomona_original.launch.py   # arm model, RViz
-ros2 launch pomona_description display_pomona_uvc.launch.py        # UV-C boom, RViz
+# Print the 25-pose coverage route
+python3 src/pomona_navigation/pomona_navigation/launch_utils/bed_waypoints.py
+
+# Regenerate the farm world (24 beds, 1 512 plants; output is deterministic)
+python3 src/pomona_gazebo/worlds/strawberry/generate_strawberry_farm.py
+
+# Unit tests for the Nav2 parameter composer and the waypoint generator
+pip install ./src/pomona_navigation pyyaml pytest
+python3 -m pytest -q src/pomona_navigation/test
 ```
 
----
-
-## 🌱 Environments
-
-Pomona is built to run **many crop worlds**, each its own scene with its own plant assets.
-Worlds and models live in **[`pomona_gazebo`](src/pomona_gazebo)**; the plant/prop assets
-are authored in `cad_assets_studio/` and promoted to `models/<crop>/`.
-
-### 🍓 1 · Strawberry - *ready* ✅
-
-The flagship world: a **pinwheel strawberry farm** - mulch beds laid out in rows and
-columns, a hedge boundary, and **~1 500 strawberry plants** on soil/grass ground, with
-`pomona_uvc` spawned at the field origin on the 2 m cross-aisle.
-
-<div align="center">
-
-![pomona_uvc driving the strawberry farm in Gazebo](src/pomona_gazebo/docs/strawberry_farm_demo.gif)
-
-<sub>The pinwheel strawberry farm in Gazebo - mulch bed rows, hedge boundary, ~1 500 plants (1.5× speed). · <code>ros2 launch pomona_gazebo strawberry_farm.launch.py use_rviz:=true</code></sub>
-
-</div>
-
-#### 🌿 Plant variants
-
-Six static, textured plant models (`models/strawberry/`) - four ripeness stages plus two
-**diseases** that are the UV-C treatment targets:
-
-<table>
-<tr>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_ripe.png" width="150"/><br/><sub><b><code>ripe</code></b> · red, pickable 🍓</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_halfripe.png" width="150"/><br/><sub><b><code>halfripe</code></b> · pink-white 🤍</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_unripe.png" width="150"/><br/><sub><b><code>unripe</code></b> · green 🟢</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_flower.png" width="150"/><br/><sub><b><code>flower</code></b> · blossom 🌸</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_mildew.png" width="150"/><br/><sub><b><code>mildew</code></b> · powdery mildew 🦠 <i>UV-C target</i></sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/previews/preview_leafscorch.png" width="150"/><br/><sub><b><code>leafscorch</code></b> · leaf scorch 🍂 <i>UV-C target</i></sub></td>
-</tr>
-</table>
-
-#### 🎨 Textures
-
-Each plant is built from a shared PBR texture set (`cad_assets_studio/strawberry/textures/`)
-- swap the berry map for the ripeness stage, swap the leaf map for the disease:
-
-<table>
-<tr>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/berry_ripe.jpg" width="74"/><br/><sub>berry · ripe</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/berry_halfripe.jpg" width="74"/><br/><sub>berry · halfripe</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/berry_unripe.jpg" width="74"/><br/><sub>berry · unripe</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/berry_flower.jpg" width="74"/><br/><sub>blossom</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/leaf_healthy.jpg" width="74"/><br/><sub>leaf · healthy</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/leaf_mildew.jpg" width="74"/><br/><sub>leaf · mildew</sub></td>
-<td align="center"><img src="cad_assets_studio/strawberry/textures/leaf_scorch.jpg" width="74"/><br/><sub>leaf · scorch</sub></td>
-</tr>
-</table>
-
-<sub>+ shared normal/roughness maps (`berry_norm`, `leaf_norm`, `branch_norm`) and a leaf
-alpha cut-out. Authored in `cad_assets_studio/strawberry/` (Blender) -> promoted to Gazebo
-models. See [`models/strawberry/README.md`](src/pomona_gazebo/models/strawberry/README.md).</sub>
-
-#### 🛏️ Beds & field assets
-
-The scene is assembled from crop-agnostic props in `models/environment/`:
-
-| Asset | Role |
-|---|---|
-| `bed` | raised **mulch bed** - soil core wrapped in **plastic mulch** (`mulch_plastic.jpg`) |
-| `mulch_hole` | planting hole punched through the mulch (plants sit in these) |
-| `soil_ground` / `grass_ground` | textured ground planes under and around the beds |
-| `hedge` | green boundary hedge around the whole farm |
-
-Plants are seeded **row × column** along each bed; bed **pairs** sit at **±1.0 m** -
-exactly the UV-C boom's panel spacing - so one pass centred on the furrow disinfects
-**both beds at once**. The four quadrants pinwheel around the 2 m cross-aisle, and the
-autonomous mission in [`pomona_navigation`](src/pomona_navigation/README.md) sweeps every
-lane on SLAM.
-
-### 🚧 2-6 · Tomato · Apple · Grape · Maize · Mushroom - *loading / future*
-
-Scene folders and the naming convention are scaffolded; the plant assets aren't built yet.
-Each will mirror the strawberry pattern (ripeness + disease variants, beds, a scene world):
-
-| # | World | Crop | Status |
-|---|---|---|---|
-| 2 | `tomato_greenhouse` | 🍅 tomato | planned - assets TODO |
-| 3 | `apple_orchard` | 🍎 apple | planned - assets TODO |
-| 4 | `grape_vineyard` | 🍇 grape | planned - assets TODO |
-| 5 | `maize_field` | 🌽 maize | planned - assets TODO |
-| 6 | `mushroom_greenhouse` | 🍄 mushroom | planned - assets TODO |
-
-New crops are produced with the **crop-asset-pipeline** from `cad_assets_studio/<crop>/`,
-then promoted to `pomona_gazebo/models/<crop>/`.
-
-### ⬛ `empty_world` - *the smoke-test* ✅
+Full simulation (needs Gazebo Classic 11 and a display; these commands are taken
+from the package documentation and were not re-run for this release):
 
 ```bash
-ros2 launch pomona_gazebo empty_world_pomona_original_xacro.launch.py   # base + arm
-ros2 launch pomona_gazebo empty_world_pomona_uvc_xacro.launch.py        # base + UV-C boom
+# Terminal 1: farm + robot + teleop
+ros2 launch pomona_gazebo strawberry_farm.launch.py
+
+# Terminal 2: SLAM + Nav2 + autonomous bed sweep
+ros2 launch pomona_navigation autonomous_waypoint.launch.py controller:=mppi
+
+# Terminal 3: UV-C lamps and dose map
+ros2 launch pomona_uvc uvc_control.launch.py rviz:=true
+ros2 service call /uvc/all std_srvs/srv/SetBool "{data: true}"
+
+# Optional: save the map the mission built
+ros2 launch pomona_slam save_map.launch.py map_name:=strawberry_farm
 ```
+
+Robot model only (RViz):
+
+```bash
+ros2 launch pomona_description display_pomona_uvc.launch.py
+ros2 launch pomona_description display_pomona_original.launch.py
+```
+
+See [`docs/sim_runbook.md`](docs/sim_runbook.md) for the launch timeline,
+per-subsystem checks and known failures.
 
 ---
 
-## 📦 Packages
+## Results
 
-| Package | What it does |
+| | |
 |---|---|
-| **[`pomona_description`](src/pomona_description/README.md)** | URDF / xacro / meshes - the two robot models (shared sim + real) |
-| **[`pomona_gazebo`](src/pomona_gazebo)** | Gazebo Classic 11 worlds, crop environments, launches (sim only) |
-| **[`pomona_slam`](src/pomona_slam/README.md)** | SLAM Toolbox - online mapping, localization, offline replay |
-| **[`pomona_navigation`](src/pomona_navigation/README.md)** | Nav2 stack + autonomous bed-disinfection mission |
-| **[`pomona_uvc`](src/pomona_uvc/README.md)** | UV-C lamp on/off services + disinfection **dose map** ("blobs") for RViz |
-| **[`pomona_moveit_config`](src/pomona_moveit_config)** | MoveIt 2 for the xArm6 + AG95 (stub) |
-| **`pomona_bringup`** | CAN / USB / Ethernet vendor drivers (real robot only, stubs) |
-| **`pomona_msgs`** | custom messages (empty day-1) |
+| ![pomona_uvc model in RViz](media/robot_demo.gif) | ![The strawberry farm in Gazebo](media/strawberry_farm_demo.gif) |
+| `pomona_uvc`: Scout V2 base, deck box and cantilever UV-C boom | The pinwheel strawberry farm in Gazebo (1.5× speed) |
+
+- SLAM Toolbox produced the saved occupancy grid of the farm shown above
+  (0.05 m resolution).
+- The coverage route visits all 24 beds in 12 passes because each pass
+  straddles a bed pair with the ±1.0 m lamp panels.
+- The UV-C node integrates a distance-weighted dose under each lit lamp and
+  publishes it as an occupancy grid, so coverage can be inspected in RViz.
+
+TODO: add measured mission duration and dose-coverage statistics.
+
+---
+
+## Repository layout
 
 ```
 pomona_nexus/
-├── src/                  ← ROS 2 packages (colcon root)
-├── cad_assets_studio/    ← 3D asset workshop (Blender/FreeCAD -> Gazebo models)
-├── goldmines/            ← archived ROS 1 source + robot config dumps (reference)
-├── docs/                 ← hardware notes, runbooks (docs/sim_runbook.md)
-└── README.md
+├── src/                        ROS 2 packages (colcon root)
+│   ├── pomona_description/     URDF/xacro + meshes (two robot models)
+│   ├── pomona_gazebo/          worlds, Gazebo models, sim launches, self-filter node
+│   ├── pomona_slam/            SLAM Toolbox configs, launches, saved map
+│   ├── pomona_navigation/      Nav2 composer, launches, mission node, tests
+│   ├── pomona_uvc/             UV-C lamp/dose node
+│   ├── pomona_moveit_config/   MoveIt 2 config (stub)
+│   ├── pomona_bringup/         real-robot drivers (stubs)
+│   └── pomona_msgs/            custom interfaces (empty)
+├── cad_assets_studio/          Blender/FreeCAD scripts that build the Gazebo assets
+├── docs/sim_runbook.md         simulation runbook and troubleshooting
+├── media/                      demo GIFs and the rendered map
+├── .github/workflows/ci.yml    build + test workflow
+├── CITATION.cff
+└── LICENSE
 ```
 
 ---
 
-## 🔧 Typical workflows
+## Hardware (real robot)
 
-```bash
-# Map a farm, then localize + navigate on it
-ros2 launch pomona_gazebo strawberry_farm.launch.py
-ros2 launch pomona_slam slam.launch.py use_sim_time:=true use_rviz:=true
-ros2 launch pomona_slam save_map.launch.py map_name:=strawberry_farm
-ros2 launch pomona_navigation bringup.launch.py localization:=amcl controller:=mppi
+| Component | Make / model | Interface |
+|---|---|---|
+| Mobile base | AgileX Scout V2 (4-wheel skid steer) | CAN `can0` @ 500k |
+| Manipulator | UFactory xArm6 | Ethernet |
+| Gripper | DH Robotics AG95 | USB serial |
+| RGB-D camera | Intel RealSense D435 | USB 3 |
+| 3D LiDAR | Robosense (rslidar) | Ethernet |
+| IMU | Xsens MTi | USB |
 
-# Autonomous bed-disinfection mission + UV-C dose blobs in RViz
-ros2 launch pomona_navigation autonomous_waypoint.launch.py controller:=mppi
-ros2 launch pomona_uvc uvc_control.launch.py rviz:=true
-ros2 service call /uvc/all std_srvs/srv/SetBool "{data: true}"
-```
-
-See [`docs/sim_runbook.md`](docs/sim_runbook.md) for the launch timeline, per-subsystem
-verification, and fixes for known failures.
+The hardware launch files in `pomona_bringup` are stubs; see its README for
+which drivers still need porting.
 
 ---
 
-## 🦾 Hardware (real robot)
+## Acknowledgements
 
-| Component        | Make / Model                  | Interface             |
-|------------------|-------------------------------|-----------------------|
-| Mobile base      | AgileX Scout V2 (4-wheel skid)| CAN bus `can0` @ 500k |
-| Manipulator arm  | UFactory xArm6 (6-DOF)        | Ethernet `192.168.1.219` |
-| End-effector     | DH Robotics AG95 gripper      | FTDI USB `/dev/DH_hand` 115200 8N1 |
-| RGB-D camera     | Intel RealSense D435 (on EE)  | USB 3                 |
-| 3D LiDAR         | Robosense (rslidar)           | Ethernet              |
-| IMU              | Xsens MTi (DB4698SY)          | USB `/dev/xsens_imu`  |
+- Robot meshes: AgileX Robotics (`scout_ros`), UFactory (`xarm_ros`) and
+  DH Robotics (AG95 gripper model); see
+  [`src/pomona_description/meshes/ATTRIBUTION`](src/pomona_description/meshes/ATTRIBUTION).
+- Built on [Nav2](https://navigation.ros.org/),
+  [SLAM Toolbox](https://github.com/SteveMacenski/slam_toolbox),
+  [MoveIt 2](https://moveit.ai/) and Gazebo Classic.
+- TODO: name the collaborators who contributed to this project.
 
-```bash
-ros2 launch pomona_bringup pomona_bringup.launch.py
-```
+## Licence
 
----
+Apache-2.0 — see [LICENSE](LICENSE). Third-party meshes keep their upstream
+licences as listed in `src/pomona_description/meshes/ATTRIBUTION`.
 
-<div align="center">
+## Author
 
-### Pravin Oli
-
-Robotics &amp; Mechanical Engineer
-
-[![Email](https://img.shields.io/badge/pravin.oli.08%40gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:pravin.oli.08@gmail.com)
-[![GitHub](https://img.shields.io/badge/GitHub-Rudip1-181717?logo=github&logoColor=white)](https://github.com/Rudip1)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-pravin--oli-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/pravin-oli-2851662ab)
-
-<sub>`pravin.oli.08@gmail.com` · `olipravin18@gmail.com` · Girona, Spain · [Apache-2.0](LICENSE)</sub>
-
-</div>
+**Pravin Oli** · [GitHub](https://github.com/Rudip1) ·
+[LinkedIn](https://www.linkedin.com/in/pravin-oli-2851662ab)
