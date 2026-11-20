@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-  pull_request:
+  # Manual only (Actions tab -> Run workflow). Add push/pull_request back to run on every push.
   workflow_dispatch:
 
 jobs:
